@@ -2,7 +2,9 @@ const cors = require('cors');
 const express = require('express');
 const http = require('http');
 const https = require('https');
+const fs = require('fs');
 const k8s = require('@kubernetes/client-node');
+
 const {createProxyMiddleware} = require('http-proxy-middleware');
 const toString = require('stream-to-string');
 const {Issuer} = require('openid-client');
@@ -14,6 +16,10 @@ const getCrypto = () =>
 
 const crypto = getCrypto();
 
+const TOKEN_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/token';
+const SERVICE_ACCOUNT= '/var/run/secrets/kubernetes.io/serviceaccount';
+const NAMESPACE=`${SERVICE_ACCOUNT}/namespace`;
+const CA_CERT = `${SERVICE_ACCOUNT}/ca.crt`;
 const NODE_ENV = process.env.NODE_ENV;
 const DEBUG_VERBOSE = !!process.env.DEBUG_VERBOSE;
 const OIDC_CLIENT_ID = process.env.OIDC_CLIENT_ID;
@@ -80,18 +86,31 @@ kc.loadFromDefault();
 
 const opts = {};
 kc.applyToRequest(opts);
+const token = fs.readFileSync(TOKEN_PATH, 'utf8').trim();
+const podNamespace = fs.readFileSync(NAMESPACE, 'utf8').trim();
+const caCertValue = fs.readFileSync(CA_CERT, 'utf8').trim()
+console.log(`Token: ${token}`);
+console.log(`serviceAccount: ${SERVICE_ACCOUNT}`);
+console.log(`pod namespace: ${podNamespace}`);
+console.log(`ca cert value: ${caCertValue}`);
 
-const target = kc.getCurrentCluster().server;
+const target = /*kc.getCurrentCluster().server;*/ `https://kubernetes.default.svc`;
 console.log('API URL: ', target);
-const agent = new https.Agent({ca: opts.ca});
+const agent = new https.Agent({ca: caCertValue});
 const proxySettings = {
     target,
     agent,
     ws: true,
-    secure: false,
+    secure: true,
     changeOrigin: true,
     logLevel: 'debug',
     onError,
+    headers: {
+        'Authorization': `Bearer ${token}`
+    },
+    onProxyReqWs(proxyReq, req, socket, options, head) {
+        console.log("Proxy request received for websocket")
+    }
 };
 
 if (DEBUG_VERBOSE) {
@@ -103,8 +122,8 @@ app.disable('x-powered-by'); // for security reasons, best not to tell attackers
 app.use(logging);
 if (NODE_ENV !== 'production') app.use(cors());
 app.use('/', preAuth, express.static('public'));
-app.get('/oidc', getOidc);
-app.post('/oidc', postOidc);
+// app.get('/oidc', getOidc);
+// app.post('/oidc', postOidc);
 app.use('/*', createProxyMiddleware(proxySettings));
 app.use(handleErrors);
 

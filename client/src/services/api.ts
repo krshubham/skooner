@@ -73,7 +73,7 @@ const apis = {
 };
 
 async function testAuth() {
-    const spec = {namespace: 'default'};
+    const spec = {namespace: 'kube-system'};
     await post('/apis/authorization.k8s.io/v1/selfsubjectrulesreviews', {spec}, false);
 }
 

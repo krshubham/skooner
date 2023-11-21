@@ -25,6 +25,6 @@ COPY /server ./
 # USER 1000 is the "node" user
 # This is to avoid the "container has runAsNonRoot and image has non-numeric user (node), cannot verify user is non-root"
 # in clusters with PSP enabled
-USER 1000
+#USER 1000
 
 ENTRYPOINT ["/sbin/tini", "--", "node", "."]

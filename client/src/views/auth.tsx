@@ -20,26 +20,8 @@ const ERROR_MESSAGE = 'Error occurred attempting to login';
 export default class Auth extends Base<{}, State> {
     state: State = {
         token: '',
+        useTokenLogin: true
     };
-
-    async componentDidMount() {
-        const url = new URL(window.location.href);
-        const code = url.searchParams.get('code');
-        const state = url.searchParams.get('state');
-
-        if (code && state) {
-            this.oidcLogin(code, state);
-            return;
-        }
-
-        const {authEndpoint} = await api.oidc.get();
-        if (authEndpoint) {
-            redirectToOidc(authEndpoint);
-            return;
-        }
-
-        this.setState({useTokenLogin: true});
-    }
 
     render() {
         const {token, useTokenLogin} = this.state || {};
